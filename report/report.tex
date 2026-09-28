@@ -1,0 +1,130 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+\lstset{basicstyle=\ttfamily\small,backgroundcolor=\color{black!5},breaklines=true,frame=single,columns=fullflexible}
+
+\title{Cryptography \& Network Security \\ \large ETTCS801 Integrated Situation --- Technical Report}
+\author{UMWUNGERI Jean Robert Clement \\{} 4202670015 \\{} ULK Polytechnic Institute}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introduction}
+This report documents the work completed for the ETTCS801 Integrated Situation. The institute stores student records on a central server and transfers files between two campuses. A security review found weak staff passwords, outdated software, unencrypted file transfers and guest network access to the records server, and the IT team observed repeated connection attempts from an unfamiliar external address. The work consists of a risk assessment, a Python encryption and integrity toolkit, and firewall rules that protect the records server.
+
+\section{Risk Assessment}
+\label{sec:risk}
+
+\subsection{Assets, Vulnerabilities and Consequences}
+\begin{longtable}{p{3.2cm}p{4cm}p{7cm}}
+\toprule
+Asset & Vulnerability & Possible consequence \\
+\midrule
+\endhead
+Central student records server & Guest network can reach the server & An unauthorised or compromised guest device could read, copy or alter student records. The repeated external connection attempts show the server is already being probed. \\
+Staff accounts and authentication & Weak staff passwords & An attacker who guesses a password gains trusted access to the records server and bypasses perimeter controls. \\
+Inter-campus file transfer channel & Unencrypted transfers and outdated software & Data in transit can be intercepted or altered, and known unpatched flaws may allow deeper access once an attacker has a foothold. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Risk Ranking}
+\begin{longtable}{p{1.2cm}p{4cm}p{1.8cm}p{1.8cm}p{5.5cm}}
+\toprule
+Rank & Risk & Likelihood & Impact & Reason \\
+\midrule
+\endhead
+1 & Guest access to records server & High & High & The threat is already observed: repeated connection attempts give an attacker a direct path to the asset. \\
+2 & Weak staff passwords & High & High & Weak passwords are easy to guess or reuse, and a stolen staff account gives trusted access. \\
+3 & Unencrypted transfers and outdated software & Medium & Medium--High & Interception needs a position on the transfer path, a higher bar, but outdated software raises the impact if a foothold is gained. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Recommended Controls}
+\begin{itemize}
+\item \textbf{Guest access:} network segmentation with firewall rules that deny the guest subnet and permit only the authorised staff subnet (implemented in Section~\ref{sec:firewall}).
+\item \textbf{Weak passwords:} a strong password policy (length, complexity, no reuse) combined with multi-factor authentication.
+\item \textbf{Unencrypted transfers and outdated software:} encrypted transfer (SFTP, SCP or TLS) and a regular patch-management schedule.
+\end{itemize}
+
+\section{Encryption, Decryption and Integrity}
+\label{sec:crypto}
+
+\subsection{Design}
+The toolkit \texttt{encryption\_tool.py} is a command-line program with five commands: \texttt{genkey}, \texttt{encrypt}, \texttt{decrypt}, \texttt{hash} and \texttt{verify}. It uses Fernet from Python's \texttt{cryptography} library, which combines AES-128 in CBC mode with an HMAC, so encrypted files are both confidential and tamper-evident.
+\begin{itemize}
+\item \textbf{Encryption:} \texttt{encrypt\_file} reads the plaintext, encrypts it with the key and writes the ciphertext to a new file.
+\item \textbf{Decryption and verification:} \texttt{decrypt\_file} recovers the plaintext and, with \texttt{--compare-to}, compares it byte for byte with the original.
+\item \textbf{Integrity:} \texttt{hash\_file} computes a SHA-256 digest and can save it; \texttt{verify\_integrity} recomputes the digest later and reports whether the file has changed.
+\item \textbf{Key handling:} the key is stored outside the repository (default \texttt{../secret.key}) and \texttt{.gitignore} excludes key files.
+\item \textbf{Error handling:} a missing file, empty file, unreadable file, invalid key, wrong key or tampered ciphertext produces a clear \texttt{[ERROR]} or \texttt{[FAIL]} message and a non-zero exit code, never an unhandled exception.
+\end{itemize}
+
+\subsection{Test Evidence}
+The following output was produced by running the toolkit on the sample record. The first listing shows encryption, decryption with byte-for-byte verification, hashing and an unchanged-file check; the second shows tamper detection and the error-handling cases.
+
+\lstinputlisting[basicstyle=\ttfamily\scriptsize]{evidence_crypto_1.txt}
+
+\lstinputlisting[basicstyle=\ttfamily\scriptsize]{evidence_crypto_2.txt}
+
+\section{Network Traffic Filtering}
+\label{sec:firewall}
+
+\subsection{Laboratory Setup}
+Only one machine was available, so three separate networks were simulated on it using Linux network namespaces connected by virtual Ethernet pairs (\texttt{netns\_setup.sh}). The host acts as the records server and runs the firewall.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Network & Subnet & Role \\
+\midrule
+\texttt{staff\_ns} & 192.168.10.0/24 & Authorised staff \\
+\texttt{guest\_ns} & 192.168.50.0/24 & Guest network \\
+\texttt{other\_ns} & 10.99.99.0/24 & Other external source \\
+\bottomrule
+\end{tabular}
+\end{center}
+The protected service is TCP port 8000, provided by a Python HTTP server on the host. If the assessor specifies different values, they are changed at the top of \texttt{firewall\_rules.sh}.
+
+\subsection{Firewall Rules}
+\begin{lstlisting}
+sudo ufw deny  from 192.168.50.0/24 to any port 8000 proto tcp   # 3a guest blocked
+sudo ufw allow from 192.168.10.0/24 to any port 8000 proto tcp   # 3b staff permitted
+sudo ufw deny 8000/tcp                                            # 3c all others blocked
+\end{lstlisting}
+Rules are matched in order, so the specific guest and staff rules take effect before the general deny. The resulting rule set is confirmed with \texttt{sudo ufw status numbered}:
+
+\lstinputlisting[basicstyle=\ttfamily\scriptsize]{evidence_ufw.txt}
+
+\subsection{Test Procedure and Results}
+One permitted and two blocked connections were tested, each from inside the relevant namespace.
+
+\begin{longtable}{p{2.6cm}p{6cm}p{2.6cm}p{2.6cm}}
+\toprule
+Test & Command & Expected & Actual \\
+\midrule
+\endhead
+Staff (permitted) & \texttt{ip netns exec staff\_ns curl http://192.168.10.1:8000/} & HTTP 200 & HTTP 200, exit 0 \\
+Guest (blocked) & \texttt{ip netns exec guest\_ns curl http://192.168.50.1:8000/} & Timeout, no response & HTTP 000, exit 28 (timeout) \\
+Other (blocked) & \texttt{ip netns exec other\_ns curl http://10.99.99.1:8000/} & Timeout, no response & HTTP 000, exit 28 (timeout) \\
+\bottomrule
+\end{longtable}
+
+\lstinputlisting[basicstyle=\ttfamily\scriptsize]{evidence_curl.txt}
+
+\section{Conclusion}
+The assessment identified guest network exposure, weak staff passwords, and unencrypted transfers with outdated software as the main risks to the student records system, ranking guest exposure highest because probing was already observed. The Python toolkit provides confidential storage of records through encryption, confirms that decryption restores the original data, and detects later modification through SHA-256 hashing, while handling invalid input without failing. The firewall rules restrict the records service to the authorised staff network and block guest and all other sources. A limitation is that the networks were simulated on a single machine rather than a physical segmented network, although the firewall matching logic is the same. Password policy, multi-factor authentication, encrypted transfers and patching remain to be implemented as organisational controls.
+
+\vspace{1em}
+\noindent GitHub repository: \url{https://github.com/hnmarc-hub/cryptography-network-security-exam}
+
+\end{document}

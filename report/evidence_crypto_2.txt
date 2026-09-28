@@ -1,0 +1,14 @@
+$ python3 encryption_tool.py verify sample_data/tampered_copy.txt sample_data/sample_student_record.sha256
+     Stored hash : 4649b4dfa7841a5d4023b17923dec73ddacada717c484cda2241b9aab8caae4d
+     Current hash: c342246ef28b9a3233561f0a854b59e5e0af371d341b2db7bd85ce231d402343
+[FAIL] Integrity check FAILED: file has been modified since the hash was recorded.
+
+$ python3 encryption_tool.py hash sample_data/does_not_exist.txt
+[ERROR] File not found: sample_data/does_not_exist.txt
+
+$ python3 encryption_tool.py decrypt sample_data/sample_student_record.enc sample_data/bad.dec --key ../wrong.key
+[ERROR] Decryption failed: wrong key, or the file is corrupted/tampered with.
+
+$ python3 encryption_tool.py encrypt sample_data/sample_student_record.txt sample_data/x.enc --key ../no_such.key
+[ERROR] Key file not found: ../no_such.key
+        Run 'python encryption_tool.py genkey' first.

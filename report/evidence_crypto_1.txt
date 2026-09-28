@@ -1,0 +1,20 @@
+$ python3 encryption_tool.py genkey --key ../secret.key
+[OK] New key written to: ../secret.key
+     Keep this file private and outside the Git repository.
+
+$ python3 encryption_tool.py encrypt sample_data/sample_student_record.txt sample_data/sample_student_record.enc --key ../secret.key
+[OK] Encrypted 'sample_data/sample_student_record.txt' -> 'sample_data/sample_student_record.enc'
+     SHA-256 of original file: 4649b4dfa7841a5d4023b17923dec73ddacada717c484cda2241b9aab8caae4d
+
+$ python3 encryption_tool.py decrypt sample_data/sample_student_record.enc sample_data/sample_student_record.dec --key ../secret.key --compare-to sample_data/sample_student_record.txt
+[OK] Decrypted 'sample_data/sample_student_record.enc' -> 'sample_data/sample_student_record.dec'
+[OK] Verification PASSED: decrypted content matches the original file.
+
+$ python3 encryption_tool.py hash sample_data/sample_student_record.txt --save sample_data/sample_student_record.sha256
+[OK] SHA-256(sample_data/sample_student_record.txt) = 4649b4dfa7841a5d4023b17923dec73ddacada717c484cda2241b9aab8caae4d
+     Hash saved to: sample_data/sample_student_record.sha256
+
+$ python3 encryption_tool.py verify sample_data/sample_student_record.txt sample_data/sample_student_record.sha256
+     Stored hash : 4649b4dfa7841a5d4023b17923dec73ddacada717c484cda2241b9aab8caae4d
+     Current hash: 4649b4dfa7841a5d4023b17923dec73ddacada717c484cda2241b9aab8caae4d
+[OK] Integrity check PASSED: file has not changed.

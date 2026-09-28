@@ -1,0 +1,19 @@
+# Never commit encryption keys
+*.key
+secret.key
+
+# Never commit real student records
+sample_data/*.enc
+sample_data/*.dec
+sample_data/*_real*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# LaTeX build artifacts
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
